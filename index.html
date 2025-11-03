@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiskMotion - Disk Scheduling Visualizer</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Use the 'Inter' font family -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        /* Base styles and Pastel Color Palette */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f3f8; /* Light Pastel Blue/Gray */
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Dark mode base */
+        html.dark body {
+            background-color: #0f172a; /* Slate 900 */
+        }
+
+        .stat-card {
+            background-color: white;
+            border-radius: 0.75rem; /* rounded-xl */
+            padding: 1.5rem; /* p-6 */
+            box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.05); /* Softer shadow */
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        html.dark .stat-card {
+            background-color: #1e293b; /* Slate 800 */
+            border: 1px solid #334155; /* Slate 700 */
+        }
+
+        canvas {
+            border: 1px solid #d1d5db; /* border-gray-300 */
+            border-radius: 0.5rem; /* rounded-lg */
+            width: 100%;
+            height: 150px;
+        }
+        
+        html.dark canvas {
+            border-color: #475569; /* dark:border-slate-600 */
+        }
+
+        /* Custom Button Styling (Pastel Palette) */
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem; /* rounded-md */
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+            border: 1px solid transparent;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary { 
+            background-color: #a7c7e7; /* Pastel Blue */
+            color: #1e3a8a; /* Dark Blue text */
+            border-color: #9ab9d9;
+        }
+        .btn-primary:hover { background-color: #9ab9d9; }
+        
+        .btn-secondary { 
+            background-color: #d1d5db; /* Pastel Gray */
+            color: #1f2937; /* Dark Gray text */
+            border-color: #b7bbc0;
+        }
+        .btn-secondary:hover { background-color: #b7bbc0; }
+        
+        .btn-danger { 
+            background-color: #f4a4a4; /* Pastel Red */
+            color: #7f1d1d; /* Dark Red text */
+            border-color: #e39393;
+        }
+        .btn-danger:hover { background-color: #e39393; }
+        
+        .btn-success { 
+            background-color: #bce2b4; /* Pastel Green */
+            color: #14532d; /* Dark Green text */
+            border-color: #add6a7;
+        }
+        .btn-success:hover { background-color: #add6a7; }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Dark Mode Button Overrides */
+        html.dark .btn-primary { 
+            background-color: #3b82f6; /* Blue 500 */
+            color: #eff6ff;
+            border-color: #2563eb;
+        }
+        html.dark .btn-primary:hover { background-color: #2563eb; }
+
+        html.dark .btn-secondary { 
+            background-color: #475569; /* Slate 600 */
+            color: #e2e8f0;
+            border-color: #334155;
+        }
+        html.dark .btn-secondary:hover { background-color: #334155; }
+        
+        html.dark .btn-danger { 
+            background-color: #ef4444; /* Red 500 */
+            color: #fef2f2;
+            border-color: #dc2626;
+        }
+        html.dark .btn-danger:hover { background-color: #dc2626; }
+        
+        html.dark .btn-success { 
+            background-color: #22c55e; /* Green 500 */
+            color: #f0fdf4;
+            border-color: #16a34a;
+        }
+        html.dark .btn-success:hover { background-color: #16a34a; }
+
+        /* Custom Speed Control */
+        .speed-control {
+            display: flex;
+            border-radius: 0.375rem;
+            overflow: hidden;
+            border: 1px solid #d1d5db;
+        }
+        html.dark .speed-control { border-color: #475569; }
+        .speed-control input[type="radio"] { display: none; }
+        .speed-control label {
+            flex: 1;
+            padding: 0.5rem;
+            text-align: center;
+            cursor: pointer;
+            background-color: #e5e7eb;
+            color: #374151;
+            transition: background-color 0.2s ease;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        html.dark .speed-control label {
+            background-color: #334155;
+            color: #cbd5e1;
+        }
+        .speed-control label:not(:last-child) {
+            border-right: 1px solid #d1d5db;
+        }
+        html.dark .speed-control label:not(:last-child) {
+            border-right-color: #475569;
+        }
+        .speed-control input[type="radio"]:checked + label {
+            background-color: #a7c7e7; /* Pastel Blue */
+            color: #1e3a8a;
+        }
+        html.dark .speed-control input[type="radio"]:checked + label {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        /* Timeline Scrubber */
+        #timelineScrubber:disabled {
+            opacity: 0.4;
+        }
+        
+        /* Compare Modal Styles */
+        #compareModal {
+            transition: opacity 0.3s ease;
+        }
+        #compareModal .stat-card {
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        #compareModal.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #compareModal.hidden .stat-card {
+            transform: scale(0.9);
+        }
+        #compareModal:not(.hidden) .stat-card {
+            transform: scale(1);
+        }
+
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="p-6 mb-6 bg-white dark:bg-slate-800 rounded-lg shadow-sm flex justify-between items-center ring-1 ring-black ring-opacity-5 dark:ring-slate-700">
+            <div>
+                <h1 class="text-4xl font-extrabold text-blue-600 dark:text-blue-400">
+                    DiskMotion
+                </h1>
+                <p class="text-lg text-gray-500 dark:text-gray-400">Interactive Disk Scheduling Algorithm</p>
+            </div>
+            <button id="themeToggleBtn" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700">
+                <svg id="sunIcon" xmlns="http://www.w.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg id="moonIcon" xmlns="http://www.w.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+        </header>
+
+        <!-- Main container -->
+        <div class="flex flex-col lg:flex-row gap-6">
+
+            <!-- Left Column: Inputs & Controls -->
+            <div class="w-full lg:w-1/3">
+                <div class="stat-card flex flex-col gap-6">
+                    
+                    <!-- Section: Inputs -->
+                    <div>
+                        <!-- IMPROVEMENT: Customizable Random Gen -->
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
+                            <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">1. Inputs</h2>
+                            <div class="flex items-center gap-2">
+                                <label for="randomCount" class="text-sm font-medium text-gray-700 dark:text-gray-300">Count:</label>
+                                <input type="number" id="randomCount" value="10" min="5" max="50" class="w-20 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-100">
+                                <button id="btnRandom" class="btn btn-secondary text-xs p-2">Generate</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Error Handling Box -->
+                        <div id="error-message" class="hidden p-3 bg-red-100 text-red-700 border border-red-300 rounded-md mb-4 text-sm">
+                            <!-- Error messages will be injected here -->
+                        </div>
+
+                        <div class="flex flex-col gap-4">
+                            <!-- Algorithm Selection -->
+                            <div>
+                                <label for="algorithm" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Algorithm</label>
+                                <select id="algorithm" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-100">
+                                    <option value="fcfs">FCFS (First-Come, First-Served)</option>
+                                    <option value="sstf">SSTF (Shortest Seek Time First)</option>
+                                    <option value="scan" selected>SCAN (Elevator)</option>
+                                    <option value="c-scan">C-SCAN (Circular SCAN)</option>
+                                    <option value="look">LOOK</option>
+                                    <option value="c-look">C-LOOK</option>
+                                </select>
+                                <!-- IMPROVEMENT: Algorithm Description -->
+                                <div id="algo-description" class="text-sm text-gray-500 dark:text-gray-400 h-6 mt-1"></div>
+                            </div>
+                            <div>
+                                <label for="requests" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Request Sequence</label>
+                                <input type="text" id="requests" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-100" value="98, 183, 37, 122, 14, 124, 65, 67">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Comma-separated values (0-199).</p>
+                            </div>
+                            <div>
+                                <label for="startHead" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Initial Head Position</label>
+                                <input type="number" id="startHead" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-100" value="53">
+                            </div>
+                            <div>
+                                <label for="direction" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Initial Direction (for SCAN/LOOK)</label>
+                                <select id="direction" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:border-slate-600 dark:text-gray-100">
+                                    <option value="right" selected>Right (Towards 199)</option>
+                                    <option value="left">Left (Towards 0)</option>
+                                </select>
+                            </div>
+                            <!-- IMPROVEMENT: Compare All Button -->
+                            <div class="mt-4">
+                                <button id="btnCompare" class="btn btn-primary w-full">Compare All Algorithms</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Controls -->
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">2. Visualization Controls</h2>
+                        <div class="grid grid-cols-3 gap-2 mb-4">
+                            <button id="btnStart" class="btn btn-primary col-span-1">Start</button>
+                            <button id="btnPause" class="btn btn-secondary col-span-1" disabled>Pause</button>
+                            <button id="btnReset" class="btn btn-danger col-span-1">Reset</button>
+                            <button id="btnStepBack" class="btn btn-secondary col-span-2" disabled>&larr; Step Back</button>
+                            <button id="btnStepFwd" class="btn btn-secondary col-span-1">&rarr; Step</button>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Animation Speed</label>
+                            <div id="speedControl" class="speed-control">
+                                <input type="radio" id="speed0" name="speed" value="2000">
+                                <label for="speed0">Slowest</label>
+                                <input type="radio" id="speed1" name="speed" value="1000">
+                                <label for="speed1">Slow</label>
+                                <input type="radio" id="speed2" name="speed" value="500" checked>
+                                <label for="speed2">Normal</label>
+                                <input type="radio" id="speed3" name="speed" value="250">
+                                <label for="speed3">Fast</label>
+                                <input type="radio" id="speed4" name="speed" value="100">
+                                <label for="speed4">Fastest</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Export -->
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">3. Export</h2>
+                        <div class="flex gap-2">
+                            <button id="btnExportPNG" class="btn btn-success flex-1">Export PNG</button>
+                            <button id="btnExportTXT" class="btn btn-success flex-1">Export TXT</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Visualization & Stats -->
+            <div class="w-full lg:w-2/3">
+                <div class="stat-card flex flex-col gap-6">
+                    
+                    <!-- Section: Visualization -->
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Visualization</h2>
+                        <div class="w-full">
+                            <canvas id="diskCanvas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Section: Interactive Timeline -->
+                    <div>
+                        <label for="timelineScrubber" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Interactive Timeline</label>
+                        <input type="range" id="timelineScrubber" min="0" max="0" value="0" class="w-full" disabled>
+                    </div>
+
+                    <!-- Section: Statistics -->
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Statistics</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-gray-50 dark:bg-slate-700 p-4 rounded-lg border border-gray-200 dark:border-slate-600">
+                                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Seek Time</h3>
+                                <p id="totalSeekOutput" class="text-3xl font-semibold text-gray-800 dark:text-gray-100">0</p>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-slate-700 p-4 rounded-lg border border-gray-200 dark:border-slate-600">
+                                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Average Seek Time</h3>
+                                <p id="avgSeekOutput" class="text-3xl font-semibold text-gray-800 dark:text-gray-100">0.00</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Sequence -->
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Served Sequence</h2>
+                        <div id="sequenceOutput" class="bg-gray-50 dark:bg-slate-700 p-4 rounded-lg border border-gray-200 dark:border-slate-600 min-h-[50px] text-gray-700 dark:text-gray-200 font-mono text-sm break-words">
+                            -
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="text-center text-gray-500 dark:text-gray-400 mt-8 text-sm">
+            Built for BCSE303L - Operating Systems.
+        </footer>
+    </div>
+
+    <!-- IMPROVEMENT: Compare Modal -->
+    <div id="compareModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="stat-card w-full max-w-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-200">Algorithm Comparison</h2>
+                <button id="closeCompareModal" class="text-gray-500 dark:text-gray-400 p-1 text-2xl leading-none hover:text-red-500 dark:hover:text-red-400">&times;</button>
+            </div>
+            <div id="compareModalInputs" class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <!-- Inputs summary here -->
+            </div>
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b dark:border-slate-600">
+                        <th class="p-2 text-gray-700 dark:text-gray-200">Algorithm</th>
+                        <th class="p-2 text-gray-700 dark:text-gray-200">Total Seek Time</th>
+                    </tr>
+                </thead>
+                <tbody id="compareModalTableBody">
+                    <!-- Results injected here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 
+    ====================================================================
+    JavaScript Application Logic (Modularized)
+    ====================================================================
+    -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- CONSTANTS ---
+            const DISK_MAX = 199;
+            const POINT_RADIUS = 6;
+            const PADDING = 40; // Canvas padding on left/right
+            const HEAD_Y = 50; // Y-position for the disk head
+            const REQUEST_Y = 90; // Y-position for requests
+            
+            // Pastel Color Palette
+            const COLORS = {
+                pending: '#a7c7e7', // Pastel Blue
+                served: '#bce2b4', // Pastel Green
+                head: '#f4a4a4'    // Pastel Red
+            };
+
+            // IMPROVEMENT: Algorithm Descriptions
+            const ALGO_DESCRIPTIONS = {
+                'fcfs': 'Simple. In-order queue.',
+                'sstf': 'Greedy. Minimizes seek.',
+                'scan': 'Elevator. Sweeps to end.',
+                'c-scan': 'Circular. Sweeps to end.',
+                'look': 'Elevator. Sweeps to last.',
+                'c-look': 'Circular. Sweeps to last.'
+            };
+
+            // --- DOM ELEMENTS ---
+            const canvas = document.getElementById('diskCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const themeToggleBtn = document.getElementById('themeToggleBtn');
+            const sunIcon = document.getElementById('sunIcon');
+            const moonIcon = document.getElementById('moonIcon');
+            const errorMessageBox = document.getElementById('error-message');
+
+            const algorithmSelect = document.getElementById('algorithm');
+            const algoDescription = document.getElementById('algo-description');
+            const reqInput = document.getElementById('requests');
+            const headInput = document.getElementById('startHead');
+            const dirSelect = document.getElementById('direction');
+            const btnRandom = document.getElementById('btnRandom');
+            const randomCountInput = document.getElementById('randomCount');
+            
+            const btnStart = document.getElementById('btnStart');
+            const btnPause = document.getElementById('btnPause');
+            const btnReset = document.getElementById('btnReset');
+            const btnStepFwd = document.getElementById('btnStepFwd');
+            const btnStepBack = document.getElementById('btnStepBack');
+            const speedControl = document.getElementById('speedControl');
+            const timelineScrubber = document.getElementById('timelineScrubber');
+            
+            const totalSeekOutput = document.getElementById('totalSeekOutput');
+            const avgSeekOutput = document.getElementById('avgSeekOutput');
+            const sequenceOutput = document.getElementById('sequenceOutput');
+            
+            const btnExportPNG = document.getElementById('btnExportPNG');
+            const btnExportTXT = document.getElementById('btnExportTXT');
+            
+            // Compare Modal Elements
+            const btnCompare = document.getElementById('btnCompare');
+            const compareModal = document.getElementById('compareModal');
+            const closeCompareModal = document.getElementById('closeCompareModal');
+            const compareModalInputs = document.getElementById('compareModalInputs');
+            const compareModalTableBody = document.getElementById('compareModalTableBody');
+
+
+            // --- APPLICATION STATE ---
+            let history = []; // Stores the full animation path, state by state
+            let currentStateIndex = 0; // Pointer to the current state in `history`
+            let isPlaying = false;
+            let animationSpeed = 500; // Default speed
+            let timerId = null;
+            let originalRequestSet = new Set(); // Stores the initial parsed requests
+
+            
+            // ===================================================================
+            // VIRTUAL FILE: algorithms.js
+            //
+            // Part 1: "Visual" functions that generate the global `history` array
+            // for the step-by-step animation.
+            // ===================================================================
+
+            /**
+             * Dispatches to the correct algorithm function based on UI selection.
+             * @returns {boolean} True if history was successfully generated.
+             */
+            function calculateSimulationHistory() {
+                const inputs = parseInputs();
+                if (!inputs) return false;
+
+                const { requests, startHead, direction } = inputs;
+                const algorithm = algorithmSelect.value;
+                
+                // Clear previous history
+                history = [];
+                currentStateIndex = 0;
+                // Store the *original* set for FCFS, but a sorted set for others
+                if (algorithm === 'fcfs') {
+                    originalRequestSet = new Set(requests);
+                } else {
+                    originalRequestSet = new Set([...new Set(requests)].sort((a,b)=>a-b));
+                }
+                
+                // The first step in history is always the start position
+                addHistoryStep(startHead, 0, new Set(), []);
+
+                switch (algorithm) {
+                    case 'fcfs':
+                        calculateFcfsPath(requests, startHead);
+                        break;
+                    case 'sstf':
+                        calculateSstfPath(requests, startHead);
+                        break;
+                    case 'scan':
+                        calculateScanPath(requests, startHead, direction);
+                        break;
+                    case 'c-scan':
+                        calculateCScanPath(requests, startHead, direction);
+                        break;
+                    case 'look':
+                        calculateLookPath(requests, startHead, direction);
+                        break;
+                    case 'c-look':
+                        calculateCLookPath(requests, startHead, direction);
+                        break;
+                }
+                
+                // Add a final "dummy" state to show the last request as served
+                if (history.length > 0) {
+                    history.push(history[history.length - 1]);
+                }
+                
+                // Setup timeline
+                timelineScrubber.max = history.length - 1;
+                timelineScrubber.value = 0;
+                return true;
+            }
+
+            /**
+             * Helper to add a step to the global history array.
+             */
+            function addHistoryStep(head, seek, servedSet, servedOrder) {
+                history.push({
+                    head: head,
+                    seek: seek,
+                    served: new Set(servedSet),
+                    servedOrder: [...servedOrder]
+                });
+            }
+
+            // --- History-Generating Algorithm Functions ---
+
+            function calculateFcfsPath(requests, startHead) {
+                let currentHead = startHead;
+                let totalSeek = 0;
+                let served = new Set();
+                let servedOrder = [];
+
+                for (const req of requests) {
+                    totalSeek += Math.abs(req - currentHead);
+                    currentHead = req;
+                    
+                    if (originalRequestSet.has(req)) {
+                        served.add(req);
+                        servedOrder.push(req);
+                    }
+                    addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                }
+            }
+
+            function calculateSstfPath(requests, startHead) {
+                let currentHead = startHead;
+                let totalSeek = 0;
+                let served = new Set();
+                let servedOrder = [];
+                
+                let remaining = new Set(requests);
+                if (remaining.has(startHead)) {
+                    remaining.delete(startHead);
+                    served.add(startHead);
+                    servedOrder.push(startHead);
+                    addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                }
+
+                while (remaining.size > 0) {
+                    let shortestDist = Infinity;
+                    let nextReq = -1;
+
+                    for (const req of remaining) {
+                        const dist = Math.abs(req - currentHead);
+                        if (dist < shortestDist) {
+                            shortestDist = dist;
+                            nextReq = req;
+                        }
+                    }
+                    
+                    totalSeek += shortestDist;
+                    currentHead = nextReq;
+                    served.add(currentHead);
+                    servedOrder.push(currentHead);
+                    remaining.delete(currentHead);
+
+                    addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                }
+            }
+
+            function calculateScanPath(requests, startHead, direction) {
+                let currentHead = startHead;
+                let totalSeek = 0;
+                let served = new Set();
+                let servedOrder = [];
+
+                let sortedRequests = [...new Set(requests)].sort((a,b)=>a-b);
+                
+                let leftRequests = sortedRequests.filter(r => r < startHead).reverse(); // Sort descending
+                let rightRequests = sortedRequests.filter(r => r >= startHead); // Sort ascending
+
+                if (sortedRequests.includes(startHead)) {
+                    served.add(startHead);
+                    servedOrder.push(startHead);
+                    addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                }
+
+                if (direction === 'right') {
+                    for (const req of rightRequests) {
+                        if (req === startHead) continue;
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    if (currentHead !== DISK_MAX) {
+                        totalSeek += Math.abs(DISK_MAX - currentHead);
+                        currentHead = DISK_MAX;
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    for (const req of leftRequests) {
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                } else { // direction === 'left'
+                    for (const req of leftRequests) {
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    if (currentHead !== 0) {
+                        totalSeek += Math.abs(0 - currentHead);
+                        currentHead = 0;
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    for (const req of rightRequests) {
+                        if (req === startHead) continue;
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                }
+            }
+            
+            function calculateCScanPath(requests, startHead, direction) {
+                let currentHead = startHead;
+                let totalSeek = 0;
+                let served = new Set();
+                let servedOrder = [];
+
+                let sortedRequests = [...new Set(requests)].sort((a,b)=>a-b);
+                
+                let leftRequests = sortedRequests.filter(r => r < startHead);
+                let rightRequests = sortedRequests.filter(r => r >= startHead);
+
+                if (sortedRequests.includes(startHead)) {
+                    served.add(startHead);
+                    servedOrder.push(startHead);
+                    addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                }
+                
+                if (direction === 'right') {
+                    for (const req of rightRequests) {
+                        if (req === startHead) continue;
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    if (currentHead !== DISK_MAX) {
+                        totalSeek += Math.abs(DISK_MAX - currentHead);
+                        currentHead = DISK_MAX;
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    totalSeek += DISK_MAX; // Add full sweep
+                    currentHead = 0;
+                    addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    for (const req of leftRequests) {
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                } else { // direction === 'left'
+                    leftRequests.reverse(); // Serve in descending order
+                    for (const req of leftRequests) {
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    if (currentHead !== 0) {
+                        totalSeek += Math.abs(0 - currentHead);
+                        currentHead = 0;
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    totalSeek += DISK_MAX;
+                    currentHead = DISK_MAX;
+                    addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    
+                    rightRequests.reverse();
+                    for (const req of rightRequests) {
+                        if (req === startHead) continue;
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                }
+            }
+            
+            function calculateLookPath(requests, startHead, direction) {
+                let currentHead = startHead;
+                let totalSeek = 0;
+                let served = new Set();
+                let servedOrder = [];
+
+                let sortedRequests = [...new Set(requests)].sort((a,b)=>a-b);
+                
+                let leftRequests = sortedRequests.filter(r => r < startHead).reverse(); // Sort descending
+                let rightRequests = sortedRequests.filter(r => r >= startHead); // Sort ascending
+
+                if (sortedRequests.includes(startHead)) {
+                    served.add(startHead);
+                    servedOrder.push(startHead);
+                    addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                }
+
+                if (direction === 'right') {
+                    for (const req of rightRequests) {
+                        if (req === startHead) continue;
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    for (const req of leftRequests) {
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                } else { // direction === 'left'
+                    for (const req of leftRequests) {
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    for (const req of rightRequests) {
+                        if (req === startHead) continue;
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                }
+            }
+
+            function calculateCLookPath(requests, startHead, direction) {
+                let currentHead = startHead;
+                let totalSeek = 0;
+                let served = new Set();
+                let servedOrder = [];
+
+                let sortedRequests = [...new Set(requests)].sort((a,b)=>a-b);
+                
+                let leftRequests = sortedRequests.filter(r => r < startHead);
+                let rightRequests = sortedRequests.filter(r => r >= startHead);
+
+                if (sortedRequests.includes(startHead)) {
+                    served.add(startHead);
+                    servedOrder.push(startHead);
+                    addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                }
+                
+                if (direction === 'right') {
+                    for (const req of rightRequests) {
+                        if (req === startHead) continue;
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    if (leftRequests.length > 0) {
+                        const firstReq = leftRequests[0];
+                        totalSeek += Math.abs(firstReq - currentHead);
+                        currentHead = firstReq;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                        
+                        for (let i = 1; i < leftRequests.length; i++) {
+                            const req = leftRequests[i];
+                            totalSeek += Math.abs(req - currentHead);
+                            currentHead = req;
+                            served.add(currentHead);
+                            servedOrder.push(currentHead);
+                            addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                        }
+                    }
+                } else { // direction === 'left'
+                    leftRequests.reverse(); // Serve in descending order
+                    for (const req of leftRequests) {
+                        totalSeek += Math.abs(req - currentHead);
+                        currentHead = req;
+                        served.add(currentHead);
+                        servedOrder.push(currentHead);
+                        addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                    }
+                    if (rightRequests.length > 0) {
+                        const lastReq = rightRequests[rightRequests.length - 1];
+                        totalSeek += Math.abs(lastReq - currentHead);
+                        currentHead = lastReq;
+                        if (currentHead !== startHead) {
+                           served.add(currentHead);
+                           servedOrder.push(currentHead);
+                           addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                        }
+
+                        for (let i = rightRequests.length - 2; i >= 0; i--) {
+                            const req = rightRequests[i];
+                            if (req === startHead) continue;
+                            totalSeek += Math.abs(req - currentHead);
+                            currentHead = req;
+                            served.add(currentHead);
+                            servedOrder.push(currentHead);
+                            addHistoryStep(currentHead, totalSeek, served, servedOrder);
+                        }
+                    }
+                }
+            }
+
+            // ===================================================================
+            // VIRTUAL FILE: algorithms.js
+            //
+            // Part 2: "Pure" functions for the "Compare All" modal.
+            // These functions are self-contained, do not modify global state,
+            // and simply return the total seek time.
+            // ===================================================================
+
+            /**
+             * Gets the total seek time for a given algorithm.
+             * This is a "pure" calculation for the "Compare All" feature.
+             */
+            function getAlgorithmStats(algo, requests, startHead, direction) {
+                // FCFS is the only one that uses the un-sorted, un-deduped list
+                let reqCopy = (algo === 'fcfs') ? [...requests] : [...new Set(requests)];
+                let headCopy = startHead;
+                let dirCopy = direction;
+                
+                let totalSeek = 0;
+                
+                switch (algo) {
+                    case 'fcfs':
+                        for (const req of reqCopy) {
+                            totalSeek += Math.abs(req - headCopy);
+                            headCopy = req;
+                        }
+                        break;
+                    
+                    case 'sstf':
+                        let remaining = new Set(reqCopy);
+                        if (remaining.has(headCopy)) {
+                            remaining.delete(headCopy);
+                        }
+                        while (remaining.size > 0) {
+                            let shortestDist = Infinity;
+                            let nextReq = -1;
+                            for (const req of remaining) {
+                                const dist = Math.abs(req - headCopy);
+                                if (dist < shortestDist) {
+                                    shortestDist = dist;
+                                    nextReq = req;
+                                }
+                            }
+                            totalSeek += shortestDist;
+                            headCopy = nextReq;
+                            remaining.delete(headCopy);
+                        }
+                        break;
+                    
+                    case 'scan':
+                        reqCopy.sort((a,b)=>a-b);
+                        let left = reqCopy.filter(r => r < headCopy);
+                        let right = reqCopy.filter(r => r >= headCopy);
+                        
+                        if (dirCopy === 'right') {
+                            if (right.length > 0) {
+                                totalSeek += Math.abs(right[right.length - 1] - headCopy);
+                                headCopy = right[right.length - 1];
+                            }
+                            totalSeek += Math.abs(DISK_MAX - headCopy);
+                            headCopy = DISK_MAX;
+                            if (left.length > 0) {
+                                totalSeek += Math.abs(left[0] - headCopy);
+                            }
+                        } else { // left
+                            if (left.length > 0) {
+                                totalSeek += Math.abs(left[0] - headCopy);
+                                headCopy = left[0];
+                            }
+                            totalSeek += Math.abs(0 - headCopy);
+                            headCopy = 0;
+                            if (right.length > 0) {
+                                totalSeek += Math.abs(right[right.length - 1] - headCopy);
+                            }
+                        }
+                        break;
+                    
+                    case 'c-scan':
+                        reqCopy.sort((a,b)=>a-b);
+                        let c_left = reqCopy.filter(r => r < headCopy);
+                        let c_right = reqCopy.filter(r => r >= headCopy);
+                        
+                        if (dirCopy === 'right') {
+                            if (c_right.length > 0) {
+                                totalSeek += Math.abs(c_right[c_right.length - 1] - headCopy);
+                                headCopy = c_right[c_right.length - 1];
+                            }
+                            totalSeek += Math.abs(DISK_MAX - headCopy);
+                            totalSeek += DISK_MAX; // Jump
+                            headCopy = 0;
+                            if (c_left.length > 0) {
+                                totalSeek += Math.abs(c_left[c_left.length - 1] - headCopy);
+                            }
+                        } else { // left
+                             if (c_left.length > 0) {
+                                totalSeek += Math.abs(c_left[0] - headCopy);
+                                headCopy = c_left[0];
+                            }
+                            totalSeek += Math.abs(0 - headCopy);
+                            totalSeek += DISK_MAX; // Jump
+                            headCopy = DISK_MAX;
+                            if (c_right.length > 0) {
+                                totalSeek += Math.abs(c_right[0] - headCopy);
+                            }
+                        }
+                        break;
+
+                    case 'look':
+                        reqCopy.sort((a,b)=>a-b);
+                        let l_left = reqCopy.filter(r => r < headCopy);
+                        let l_right = reqCopy.filter(r => r >= headCopy);
+                        
+                        if (dirCopy === 'right') {
+                            if (l_right.length > 0) {
+                                totalSeek += Math.abs(l_right[l_right.length - 1] - headCopy);
+                                headCopy = l_right[l_right.length - 1];
+                            }
+                            if (l_left.length > 0) {
+                                totalSeek += Math.abs(l_left[0] - headCopy);
+                            }
+                        } else { // left
+                            if (l_left.length > 0) {
+                                totalSeek += Math.abs(l_left[0] - headCopy);
+                                headCopy = l_left[0];
+                            }
+                            if (l_right.length > 0) {
+                                totalSeek += Math.abs(l_right[l_right.length - 1] - headCopy);
+                            }
+                        }
+                        break;
+                    
+                    case 'c-look':
+                        reqCopy.sort((a,b)=>a-b);
+                        let cl_left = reqCopy.filter(r => r < headCopy);
+                        let cl_right = reqCopy.filter(r => r >= headCopy);
+                        
+                        if (dirCopy === 'right') {
+                            if (cl_right.length > 0) {
+                                totalSeek += Math.abs(cl_right[cl_right.length - 1] - headCopy);
+                                headCopy = cl_right[cl_right.length - 1];
+                            }
+                            if (cl_left.length > 0) {
+                                totalSeek += Math.abs(cl_left[0] - headCopy); // Jump
+                                totalSeek += Math.abs(cl_left[cl_left.length - 1] - cl_left[0]);
+                            }
+                        } else { // left
+                            if (cl_left.length > 0) {
+                                totalSeek += Math.abs(cl_left[0] - headCopy);
+                                headCopy = cl_left[0];
+                            }
+                            if (cl_right.length > 0) {
+                                totalSeek += Math.abs(cl_right[cl_right.length - 1] - headCopy); // Jump
+                                totalSeek += Math.abs(cl_right[0] - cl_right[cl_right.length - 1]);
+                            }
+                        }
+                        break;
+                }
+                return totalSeek;
+            }
+
+
+            // ===================================================================
+            // VIRTUAL FILE: animation.js
+            // Contains all Canvas drawing and animation logic.
+            // ===================================================================
+
+            function resizeCanvas() {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = 150;
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                const canvasWidth = canvas.width;
+                const dark = isDarkMode();
+                
+                const trackColor = dark ? '#475569' : '#d1d5db';
+                const textColor = dark ? '#e2e8f0' : '#1f2937';
+
+                const scaleX = (pos) => PADDING + (pos / DISK_MAX) * (canvasWidth - 2 * PADDING);
+
+                ctx.strokeStyle = trackColor;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(scaleX(0), HEAD_Y);
+                ctx.lineTo(scaleX(DISK_MAX), HEAD_Y);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(scaleX(0), HEAD_Y - 10);
+                ctx.lineTo(scaleX(0), HEAD_Y + 10);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(scaleX(DISK_MAX), HEAD_Y - 10);
+                ctx.lineTo(scaleX(DISK_MAX), HEAD_Y + 10);
+                ctx.stroke();
+                
+                ctx.fillStyle = textColor;
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('0', scaleX(0), HEAD_Y + 30);
+                ctx.fillText(DISK_MAX.toString(), scaleX(DISK_MAX), HEAD_Y + 30);
+                
+                if (history.length === 0) {
+                    const inputs = parseInputs(false); // Parse without showing errors
+                    if (inputs) {
+                        let requestsToDraw = (algorithmSelect.value === 'fcfs') ? inputs.requests : [...new Set(inputs.requests)];
+                        requestsToDraw.forEach(req => {
+                            drawPoint(scaleX(req), REQUEST_Y, COLORS.pending, req, textColor);
+                        });
+                        drawHead(scaleX(inputs.startHead), HEAD_Y, COLORS.head, inputs.startHead, textColor);
+                    }
+                    return;
+                }
+
+                const { head, served } = history[currentStateIndex];
+
+                originalRequestSet.forEach(req => {
+                    const color = served.has(req) ? COLORS.served : COLORS.pending;
+                    drawPoint(scaleX(req), REQUEST_Y, color, req, textColor);
+                });
+
+                drawHead(scaleX(head), HEAD_Y, COLORS.head, head, textColor);
+            }
+
+            function drawPoint(x, y, color, text, textColor) {
+                ctx.beginPath();
+                ctx.arc(x, y, POINT_RADIUS, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+                
+                ctx.fillStyle = textColor;
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(text, x, y + POINT_RADIUS + 14);
+            }
+
+            function drawHead(x, y, color, text, textColor) {
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - POINT_RADIUS, y - (POINT_RADIUS * 1.5));
+                ctx.lineTo(x + POINT_RADIUS, y - (POINT_RADIUS * 1.5));
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+                
+                ctx.fillStyle = textColor;
+                ctx.font = 'bold 12px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(text, x, y - (POINT_RADIUS * 2));
+            }
+
+
+            // ===================================================================
+            // VIRTUAL FILE: app.js
+            // Contains the main UI logic, event listeners, and state.
+            // ===================================================================
+
+            function init() {
+                setupTheme();
+                resizeCanvas();
+                draw();
+                updateUI();
+                addEventListeners();
+                updateAlgoDescription(); // Set initial description
+                animationSpeed = parseInt(document.querySelector('input[name="speed"]:checked').value, 10);
+            }
+
+            function addEventListeners() {
+                window.addEventListener('resize', () => {
+                    resizeCanvas();
+                    draw();
+                });
+                
+                themeToggleBtn.addEventListener('click', handleThemeToggle);
+                btnRandom.addEventListener('click', handleRandomInputs);
+                algorithmSelect.addEventListener('change', updateAlgoDescription);
+
+                btnStart.addEventListener('click', handleStart);
+                btnPause.addEventListener('click', handlePause);
+                btnReset.addEventListener('click', handleReset);
+                btnStepFwd.addEventListener('click', handleStepForward);
+                btnStepBack.addEventListener('click', handleStepBackward);
+                
+                speedControl.addEventListener('change', (e) => {
+                    animationSpeed = parseInt(e.target.value, 10);
+                });
+                
+                timelineScrubber.addEventListener('input', handleScrubberInput);
+                
+                btnExportPNG.addEventListener('click', handleExportPNG);
+                btnExportTXT.addEventListener('click', handleExportTXT);
+                
+                btnCompare.addEventListener('click', handleCompareAll);
+                closeCompareModal.addEventListener('click', () => compareModal.classList.add('hidden'));
+            }
+
+            // --- Theme ---
+
+            function setupTheme() {
+                if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                    moonIcon.classList.remove('hidden');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    sunIcon.classList.remove('hidden');
+                }
+            }
+
+            function handleThemeToggle() {
+                if (document.documentElement.classList.toggle('dark')) {
+                    localStorage.theme = 'dark';
+                    sunIcon.classList.add('hidden');
+                    moonIcon.classList.remove('hidden');
+                } else {
+                    localStorage.theme = 'light';
+                    moonIcon.classList.add('hidden');
+                    sunIcon.classList.remove('hidden');
+                }
+                draw(); // Redraw canvas with new theme colors
+            }
+            
+            function isDarkMode() {
+                return document.documentElement.classList.contains('dark');
+            }
+
+            // --- Error Handling ---
+            
+            function showError(message) {
+                errorMessageBox.textContent = message;
+                errorMessageBox.classList.remove('hidden');
+            }
+
+            function clearError() {
+                errorMessageBox.classList.add('hidden');
+                errorMessageBox.textContent = '';
+            }
+
+            // --- Inputs ---
+
+            function parseInputs(show = true) {
+                const reqStr = reqInput.value;
+                const headStr = headInput.value;
+                
+                const requests = reqStr.split(',')
+                    .map(s => parseInt(s.trim()))
+                    .filter(n => !isNaN(n) && n >= 0 && n <= DISK_MAX);
+                
+                const startHead = parseInt(headStr);
+                const direction = dirSelect.value;
+
+                if (isNaN(startHead) || startHead < 0 || startHead > DISK_MAX) {
+                    if (show) showError('Invalid Start Head. Must be between 0 and 199.');
+                    return null;
+                }
+                
+                if (requests.length === 0) {
+                    if (show) showError('No valid requests. Please enter numbers between 0 and 199.');
+                    return null;
+                }
+
+                // FCFS needs the original list
+                if (algorithmSelect.value === 'fcfs') {
+                    return { requests, startHead, direction };
+                }
+                
+                // Other algorithms use a unique, sorted list
+                const uniqueRequests = [...new Set(requests)];
+                uniqueRequests.sort((a, b) => a - b);
+                return { requests: uniqueRequests, startHead, direction };
+            }
+
+            // --- State & UI ---
+
+            /**
+             * Updates the algorithm description text.
+             */
+            function updateAlgoDescription() {
+                const algo = algorithmSelect.value;
+                algoDescription.textContent = ALGO_DESCRIPTIONS[algo] || '';
+            }
+
+            function updateUI() {
+                if (history.length <= 1) { // 0 or 1 (only start)
+                    totalSeekOutput.textContent = '0';
+                    avgSeekOutput.textContent = '0.00';
+                    // BUGFIX: Use theme-aware text color for placeholder
+                    sequenceOutput.innerHTML = '<span class="text-gray-400 dark:text-gray-500">Waiting for simulation...</span>';
+                } else {
+                    const state = history[currentStateIndex];
+                    totalSeekOutput.textContent = state.seek;
+                    // Use originalRequestSet.size for avg
+                    avgSeekOutput.textContent = (originalRequestSet.size > 0 ? (state.seek / originalRequestSet.size) : 0).toFixed(2);
+                    
+                    if (state.servedOrder.length > 0) {
+                        sequenceOutput.textContent = state.servedOrder.join(' → ');
+                    } else {
+                        // BUGFIX: Use theme-aware text color for placeholder
+                        sequenceOutput.innerHTML = '<span class="text-gray-400 dark:text-gray-500">Moving to first request...</span>';
+                    }
+                }
+                
+                timelineScrubber.value = currentStateIndex;
+                updateButtonStates();
+            }
+
+            function updateButtonStates() {
+                const atStart = (currentStateIndex === 0);
+                const atEnd = (currentStateIndex >= history.length - 1); // >= to handle empty history
+                const hasHistory = history.length > 1;
+
+                btnStart.disabled = isPlaying || (hasHistory && atEnd);
+                btnPause.disabled = !isPlaying;
+                btnReset.disabled = isPlaying;
+                
+                btnStepFwd.disabled = isPlaying || (hasHistory && atEnd);
+                btnStepBack.disabled = isPlaying || !hasHistory || atStart;
+
+                // Disable inputs while playing or history exists
+                reqInput.disabled = isPlaying || hasHistory;
+                headInput.disabled = isPlaying || hasHistory;
+                dirSelect.disabled = isPlaying || hasHistory;
+                btnRandom.disabled = isPlaying || hasHistory;
+                algorithmSelect.disabled = isPlaying || hasHistory;
+                randomCountInput.disabled = isPlaying || hasHistory;
+                btnCompare.disabled = isPlaying || hasHistory;
+                
+                timelineScrubber.disabled = !hasHistory;
+            }
+
+            function animateLoop() {
+                if (!isPlaying) return;
+                
+                if (currentStateIndex < history.length - 1) {
+                    currentStateIndex++;
+                    draw();
+                    updateUI();
+                    timerId = setTimeout(animateLoop, animationSpeed);
+                } else {
+                    isPlaying = false;
+                    updateUI();
+                }
+            }
+
+            // --- Event Handlers ---
+            
+            function handleRandomInputs() {
+                if (isPlaying) return;
+                handleReset(); // Clear any existing simulation
+
+                let count = parseInt(randomCountInput.value, 10);
+                if (isNaN(count) || count < 5 || count > 50) {
+                    showError("Please enter a count between 5 and 50.");
+                    return;
+                }
+                
+                let requests = new Set();
+                while (requests.size < count) {
+                    requests.add(Math.floor(Math.random() * (DISK_MAX + 1)));
+                }
+                
+                const startHead = Math.floor(Math.random() * (DISK_MAX + 1));
+                const direction = Math.random() > 0.5 ? 'right' : 'left';
+
+                reqInput.value = [...requests].join(', ');
+                headInput.value = startHead;
+                dirSelect.value = direction;
+
+                draw();
+            }
+
+            function handleStart() {
+                if (isPlaying) return;
+                clearError();
+
+                if (history.length <= 1) {
+                    if (!calculateSimulationHistory()) {
+                        return; // Stop if inputs are invalid
+                    }
+                }
+                
+                if (currentStateIndex >= history.length - 1) {
+                    currentStateIndex = 0; // Restart
+                }
+
+                isPlaying = true;
+                updateUI();
+                animateLoop();
+            }
+
+            function handlePause() {
+                if (!isPlaying) return;
+                isPlaying = false;
+                clearTimeout(timerId);
+                updateUI();
+            }
+
+            function handleReset() {
+                isPlaying = false;
+                clearError();
+                clearTimeout(timerId);
+                
+                history = [];
+                currentStateIndex = 0;
+                originalRequestSet.clear();
+
+                timelineScrubber.max = 0;
+                timelineScrubber.value = 0;
+
+                draw();
+                updateUI();
+            }
+
+            function handleStepForward() {
+                if (isPlaying) return;
+                clearError();
+
+                if (history.length <= 1) {
+                    if (!calculateSimulationHistory()) {
+                        return;
+                    }
+                }
+
+                if (currentStateIndex < history.length - 1) {
+                    currentStateIndex++;
+                    draw();
+                    updateUI();
+                }
+            }
+
+            function handleStepBackward() {
+                if (isPlaying || currentStateIndex === 0) return;
+
+                if (currentStateIndex > 0) {
+                    currentStateIndex--;
+                    draw();
+                    updateUI();
+                }
+            }
+            
+            function handleScrubberInput(e) {
+                if (isPlaying) {
+                    handlePause();
+                }
+                currentStateIndex = parseInt(e.targe.value, 10);
+                draw();
+                updateUI();
+            }
+
+            function handleExportPNG() {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = canvas.width;
+                tempCanvas.height = canvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                tempCtx.fillStyle = isDarkMode() ? '#0f172a' : '#f0f3f8';
+                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                
+                tempCtx.drawImage(canvas, 0, 0);
+
+                const dataUrl = tempCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `diskmotion_${algorithmSelect.value}_sim.png`;
+                link.href = dataUrl;
+                link.click();
+            }
+
+            function handleExportTXT() {
+                if (history.length <= 1) {
+                    showError('Please run a simulation before exporting.');
+                    return;
+                }
+                
+                const inputs = parseInputs(false);
+                const finalState = history[history.length - 1];
+                
+                let trace = `--- DiskMotion Scheduling Trace (${algorithmSelect.value.toUpperCase()}) ---\n\n`;
+                trace += "1. INPUTS\n";
+                let reqDisplay = (algorithmSelect.value === 'fcfs') ? reqInput.value : [...originalRequestSet].join(', ');
+                trace += `   Request Sequence: ${reqDisplay}\n`;
+                trace += `   Initial Head: ${inputs.startHead}\n`;
+                if (['scan', 'c-scan', 'look', 'c-look'].includes(algorithmSelect.value)) {
+                    trace += `   Direction: ${inputs.direction}\n`;
+                }
+                trace += "\n";
+                
+                trace += "2. RESULTS\n";
+                trace += `   Served Sequence: ${finalState.servedOrder.join(' -> ')}\n`;
+                trace += `   Total Seek Time: ${finalState.seek}\n`;
+                trace += `   Total Requests: ${originalRequestSet.size}\n`;
+                trace += `   Average Seek Time: ${(finalState.seek / originalRequestSet.size).toFixed(2)}\n\n`;
+                
+                trace += "3. STEP-BY-STEP TRACE (Full Head Path)\n";
+                let fullPath = history.map(s => s.head);
+                trace += `   Full Path: ${fullPath.join(' -> ')}\n\n`;
+                
+                trace += "Step | Move To | Seek | Total Seek | Served Requests\n";
+                trace += "-------------------------------------------------------\n";
+                
+                for (let i = 0; i < history.length; i++) {
+                    const state = history[i];
+                    const lastHead = (i === 0) ? state.head : history[i-1].head;
+                    const seek = (i === 0) ? 0 : Math.abs(state.head - lastHead);
+                    trace += `${i.toString().padEnd(4)} | ${state.head.toString().padEnd(7)} | ${seek.toString().padEnd(4)} | ${state.seek.toString().padEnd(10)} | ${[...state.served].sort((a,b)=>a-b).join(', ')}\n`;
+                }
+
+                const blob = new Blob([trace], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = `diskmotion_${algorithmSelect.value}_trace.txt`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            }
+
+            /**
+             * Handles the "Compare All" button click.
+             */
+            function handleCompareAll() {
+                clearError();
+                const inputs = parseInputs();
+                if (!inputs) return;
+                
+                const algos = ['fcfs', 'sstf', 'scan', 'c-scan', 'look', 'c-look'];
+                let results = [];
+
+                for (const algo of algos) {
+                    // We must pass the *original* un-sorted, un-deduped list
+                    // to the stats function, as it handles FCFS vs. others.
+                    const rawRequests = reqInput.value.split(',')
+                        .map(s => parseInt(s.trim()))
+                        .filter(n => !isNaN(n) && n >= 0 && n <= DISK_MAX);
+
+                    const seek = getAlgorithmStats(algo, rawRequests, inputs.startHead, inputs.direction);
+                    results.push({ name: algo.toUpperCase(), seek: seek });
+                }
+
+                // Sort by seek time
+                results.sort((a, b) => a.seek - b.seek);
+                
+                // Populate and show modal
+                compareModalInputs.innerHTML = `
+                    <strong>Head:</strong> ${inputs.startHead} | 
+                    <strong>Direction:</strong> ${inputs.direction} | 
+                    <strong>Requests:</strong> ${inputs.requests.length}
+                `;
+                
+                compareModalTableBody.innerHTML = ''; // Clear old results
+                results.forEach((res, index) => {
+                    const isBest = (index === 0);
+                    const row = `
+                        <tr class="${isBest ? 'bg-green-100 dark:bg-green-800' : ''}">
+                            <td class="p-2 ${isBest ? 'font-bold' : ''} text-gray-800 dark:text-gray-100">${res.name} ${isBest ? '🏆' : ''}</td>
+                            <td class="p-2 ${isBest ? 'font-bold' : ''} text-gray-800 dark:text-gray-100">${res.seek}</td>
+                        </tr>
+                    `;
+                    compareModalTableBody.innerHTML += row;
+                });
+                
+                compareModal.classList.remove('hidden');
+            }
+
+            // --- STARTUP ---
+            init();
+        });
+    </script>
+</body>
+</html>
+
